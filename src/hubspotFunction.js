@@ -4,8 +4,8 @@ const path = require("path");
 const jwt = require("jsonwebtoken");
 
 // 🔑 Lê a chave privada salva no projeto
-const privateKeyPath = path.resolve(__dirname, "private.key");
-const privateKey = fs.readFileSync(privateKeyPath, "utf8");
+const privateKeyPath = path.join(__dirname, 'private.key'); // sem repetir src
+const privateKey = fs.readFileSync(privateKeyPath);
 
 // Configuração DocuSign
 const account_id = "69784ef8-1393-4d49-927c-af9a1caed068";
