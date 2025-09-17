@@ -4,24 +4,26 @@ const path = require("path");
 const jwt = require("jsonwebtoken");
 
 // 🔑 Lê a chave privada salva no projeto
-const privateKeyPath = path.join(__dirname, 'private.key'); // sem repetir src
+// O arquivo private.key deve estar dentro da pasta src/, mesma do hubspotFunction.js
+const privateKeyPath = path.join(__dirname, "private.key");
 const privateKey = fs.readFileSync(privateKeyPath);
 
 // Configuração DocuSign
 const account_id = "69784ef8-1393-4d49-927c-af9a1caed068";
 const template_id = "2aebf175-843a-470a-89ae-b956a397dfd7";
-const auth_server = "account.docusign.com"; // produção
+const auth_server = "account.docusign.com"; // Produção
 
-// Seu Integration Key e User ID do DocuSign
+// Integration Key e User ID do DocuSign
 const integrationKey = "32b34d39-c4ea-4174-9820-699a1ef7f26";
 const userId = "4af0ba80-6b88-402d-a245-2751083f8a5c";
 
+// Gera JWT
 function gerarJWT() {
   const payload = {
     iss: integrationKey,
     sub: userId,
     aud: auth_server,
-    scope: "signature impersonation"
+    scope: "signature impersonation",
   };
 
   return jwt.sign(payload, privateKey, { algorithm: "RS256", expiresIn: "10m" });
@@ -34,10 +36,11 @@ function dateFormated(val) {
 function currencyFormated(val) {
   return parseFloat(val).toLocaleString("pt-BR", {
     style: "currency",
-    currency: "BRL"
+    currency: "BRL",
   });
 }
 
+// Função principal chamada pelo HubSpot
 exports.main = async (event, callback) => {
   let has_error = false;
   let docusign_access_token;
@@ -49,24 +52,26 @@ exports.main = async (event, callback) => {
     // 2 - Troca por um Access Token
     const tokenResponse = await axios.post(`https://${auth_server}/oauth/token`, {
       grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion
+      assertion,
     });
     docusign_access_token = tokenResponse.data.access_token;
     console.log("Access token gerado:", docusign_access_token);
 
     // 3 - Monta os dados do envelope com base nos campos do HubSpot
-    const nome = event.inputFields["firstname"];
-    const nome_completo = event.inputFields["nome_completo"];
-    const email = event.inputFields["email"];
-    const nacionalidade = event.inputFields["nacionalidade"];
-    const estado_civil = event.inputFields["relationship_status"];
-    const regime_de_casamento = event.inputFields["regime_de_casamento"];
-    const rg = event.inputFields["rg"];
-    const cpf_cnpj = event.inputFields["cpf_cnpj"];
-    const rua = event.inputFields["address"];
-    const cidade = event.inputFields["city"];
-    const estado = event.inputFields["state"];
-    const zip = event.inputFields["zip"];
+    const {
+      firstname: nome,
+      nome_completo,
+      email,
+      nacionalidade,
+      relationship_status: estado_civil,
+      regime_de_casamento,
+      rg,
+      cpf_cnpj,
+      address: rua,
+      city: cidade,
+      state: estado,
+      zip,
+    } = event.inputFields;
 
     const assunto = `Termo de Adesão | ${nome_completo}`;
     const descricao = "<p>Olá Sócio, segue o termo...</p>";
@@ -91,16 +96,16 @@ exports.main = async (event, callback) => {
               { tabLabel: "CEP", value: zip },
               { tabLabel: "Rua_Endereço", value: rua },
               { tabLabel: "Cidade", value: cidade },
-              { tabLabel: "Estado", value: estado }
-            ]
-          }
-        }
-      ]
+              { tabLabel: "Estado", value: estado },
+            ],
+          },
+        },
+      ],
     };
 
     // 4 - Envia o envelope
     const docusign_api = axios.create({
-      baseURL: "https://na3.docusign.net/restapi"
+      baseURL: "https://na3.docusign.net/restapi",
     });
 
     const response = await docusign_api.post(
@@ -109,8 +114,8 @@ exports.main = async (event, callback) => {
       {
         headers: {
           Authorization: `Bearer ${docusign_access_token}`,
-          "Content-Type": "application/json"
-        }
+          "Content-Type": "application/json",
+        },
       }
     );
 
@@ -122,7 +127,7 @@ exports.main = async (event, callback) => {
 
   callback({
     outputFields: {
-      error: has_error
-    }
+      error: has_error,
+    },
   });
 };
