@@ -1,23 +1,26 @@
-const axios = require("axios").default;
+const express = require("express");
+const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const jwt = require("jsonwebtoken");
 
-// 🔑 Lê a chave privada salva no projeto
-// O arquivo private.key deve estar dentro da pasta src/, mesma do hubspotFunction.js
+const app = express();
+app.use(express.json());
+
+// 🔑 Lê a chave privada (deve estar no mesmo nível deste arquivo)
 const privateKeyPath = path.join(__dirname, "private.key");
 const privateKey = fs.readFileSync(privateKeyPath);
 
 // Configuração DocuSign
 const account_id = "69784ef8-1393-4d49-927c-af9a1caed068";
 const template_id = "2aebf175-843a-470a-89ae-b956a397dfd7";
-const auth_server = "account.docusign.com"; // Produção
+const auth_server = "account.docusign.com"; // produção
 
-// Integration Key e User ID do DocuSign
+// Credenciais
 const integrationKey = "32b34d39-c4ea-4174-9820-699a1ef7f26";
 const userId = "4af0ba80-6b88-402d-a245-2751083f8a5c";
 
-// Gera JWT
+// 🔐 Gera o JWT
 function gerarJWT() {
   const payload = {
     iss: integrationKey,
@@ -25,54 +28,39 @@ function gerarJWT() {
     aud: auth_server,
     scope: "signature impersonation",
   };
-
   return jwt.sign(payload, privateKey, { algorithm: "RS256", expiresIn: "10m" });
 }
 
-// Funções auxiliares
-function dateFormated(val) {
-  return new Date(parseInt(val)).toLocaleDateString("pt-BR");
-}
-function currencyFormated(val) {
-  return parseFloat(val).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
-
-// Função principal chamada pelo HubSpot
-exports.main = async (event, callback) => {
-  let has_error = false;
-  let docusign_access_token;
-
+// 🌍 Endpoint que o HubSpot vai chamar
+app.post("/enviar-envelope", async (req, res) => {
   try {
     // 1 - Gera o JWT
     const assertion = gerarJWT();
 
-    // 2 - Troca por um Access Token
+    // 2 - Troca por Access Token no DocuSign
     const tokenResponse = await axios.post(`https://${auth_server}/oauth/token`, {
       grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
       assertion,
     });
-    docusign_access_token = tokenResponse.data.access_token;
-    console.log("Access token gerado:", docusign_access_token);
+    const docusign_access_token = tokenResponse.data.access_token;
 
-    // 3 - Monta os dados do envelope com base nos campos do HubSpot
+    // 3 - Pega os dados enviados pelo HubSpot
     const {
-      firstname: nome,
-      nome_completo,
+      nome,
       email,
+      nome_completo,
       nacionalidade,
-      relationship_status: estado_civil,
+      estado_civil,
       regime_de_casamento,
       rg,
       cpf_cnpj,
-      address: rua,
-      city: cidade,
-      state: estado,
-      zip,
-    } = event.inputFields;
+      rua,
+      cidade,
+      estado,
+      zip
+    } = req.body;
 
+    // 4 - Monta o envelope
     const assunto = `Termo de Adesão | ${nome_completo}`;
     const descricao = "<p>Olá Sócio, segue o termo...</p>";
 
@@ -103,7 +91,7 @@ exports.main = async (event, callback) => {
       ],
     };
 
-    // 4 - Envia o envelope
+    // 5 - Envia o envelope
     const docusign_api = axios.create({
       baseURL: "https://na3.docusign.net/restapi",
     });
@@ -120,14 +108,16 @@ exports.main = async (event, callback) => {
     );
 
     console.log("Envelope enviado:", response.data);
-  } catch (err) {
-    has_error = true;
-    console.error("Erro ao enviar envelope:", err.response?.data || err.message);
-  }
+    res.json({ success: true, data: response.data });
 
-  callback({
-    outputFields: {
-      error: has_error,
-    },
-  });
-};
+  } catch (err) {
+    console.error("Erro ao enviar envelope:", err.response?.data || err.message);
+    res.status(500).json({ success: false, error: err.response?.data || err.message });
+  }
+});
+
+// 🔊 Render exige que o servidor escute a porta
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+});
