@@ -2,11 +2,12 @@ import express from "express";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
+import docusign from "docusign-esign"; // 🔹 importante: SDK oficial
 
 const app = express();
 app.use(express.json()); // interpreta JSON do HubSpot
 
-// 🔹 Rota de teste
+// 🔹 Healthcheck (Render mostra se está online)
 app.get("/", (req, res) => {
   res.send("Servidor DocuSign-HubSpot rodando! ✅");
 });
@@ -14,18 +15,22 @@ app.get("/", (req, res) => {
 // 🔹 Endpoint que o HubSpot vai chamar
 app.post("/enviar-envelope", async (req, res) => {
   try {
-    console.log("Payload recebido do HubSpot:", req.body);
+    console.log("➡️ Payload recebido do HubSpot:", req.body);
 
-    // ⚙️ Configurações do DocuSign (pegas das variáveis do Render)
-    const integratorKey = process.env.DOCUSIGN_INTEGRATOR_KEY; // Client ID
-    const userId = process.env.DOCUSIGN_USER_ID; // GUID do usuário (API Username)
-    const accountId = process.env.DOCUSIGN_ACCOUNT_ID; // ID da conta (fica no painel da API)
-    const templateId = process.env.DOCUSIGN_TEMPLATE_ID; // ID do template
-    const authServer = "account.docusign.com"; // produção → troque p/ "account-d.docusign.com" em sandbox
-    const privateKeyPath = path.resolve("private.key"); // chave salva na raiz
+    // ⚙️ Configurações do DocuSign (vem das variáveis de ambiente no Render)
+    const integratorKey = process.env.DOCUSIGN_INTEGRATOR_KEY;
+    const userId = process.env.DOCUSIGN_USER_ID;
+    const accountId = process.env.DOCUSIGN_ACCOUNT_ID;
+    const templateId = process.env.DOCUSIGN_TEMPLATE_ID;
+    const authServer = "account.docusign.com"; // produção → sandbox = "account-d.docusign.com"
+
+    // 🔑 Lê a chave privada
+    const privateKeyPath = path.resolve("private.key");
+    console.log("📂 Lendo chave privada em:", privateKeyPath);
     const privateKey = fs.readFileSync(privateKeyPath, "utf8");
 
     // 🔑 Autenticação JWT → gera novo access_token
+    console.log("⚙️ Gerando novo access_token...");
     const dsApiClient = new docusign.ApiClient();
     dsApiClient.setOAuthBasePath(authServer);
 
@@ -38,13 +43,15 @@ app.post("/enviar-envelope", async (req, res) => {
     );
 
     const accessToken = results.body.access_token;
-    console.log("Novo access_token gerado:", accessToken);
+    console.log("✅ Novo access_token gerado:", accessToken ? "OK" : "FALHOU");
 
     // 🔹 Pega dados do HubSpot
     const { nome, email, nome_completo, nacionalidade } = req.body;
+    console.log("➡️ Dados extraídos:", { nome, email, nome_completo, nacionalidade });
 
-    const assunto = "Termo de Adesão ao Acordo de Sócios" + " " + "| " + `${nome_completo}`;
-    const descricao =  "<p>Olá Sócio Acqua Vero, boa tarde!  Você está recebendo o Termo de Adesão ao Acordo de Sócios conforme estabelece o Contrato Social, o qual está vinculado. Para assinatura deste documento será necessário que seu e-CPF esteja conectado ao computador. Caso tenha alguma dificuldade para assinar entre em contato com sua certificadora.</p><br /><p>Atenciosamente,<br />Jurídico AVIN</p>";
+    const assunto = `Termo de Adesão ao Acordo de Sócios | ${nome_completo}`;
+    const descricao =
+      "<p>Olá Sócio Acqua Vero, boa tarde! Você está recebendo o Termo de Adesão ao Acordo de Sócios conforme estabelece o Contrato Social, o qual está vinculado. Para assinatura deste documento será necessário que seu e-CPF esteja conectado ao computador. Caso tenha alguma dificuldade para assinar entre em contato com sua certificadora.</p><br /><p>Atenciosamente,<br />Jurídico AVIN</p>";
 
     // 🔹 Monta envelope
     const envelopeDefinition = {
@@ -55,16 +62,18 @@ app.post("/enviar-envelope", async (req, res) => {
       templateRoles: [
         {
           roleName: "Sócio Aderente", // deve bater com o role configurado no template
-          email: email,
+          email,
           name: nome,
           tabs: {
             textTabs: [
-              { tabLabel: "Nacionalidade", value: nacionalidade },
+              { tabLabel: "Nacionalidade", value: nacionalidade || "" },
             ],
           },
         },
       ],
     };
+
+    console.log("➡️ Payload enviado para DocuSign:", envelopeDefinition);
 
     // 🔹 Chama API DocuSign
     const docusignApi = axios.create({
@@ -82,12 +91,12 @@ app.post("/enviar-envelope", async (req, res) => {
       }
     );
 
-    console.log("Envelope enviado com sucesso:", response.data);
+    console.log("✅ Envelope enviado com sucesso:", response.data);
 
     res.json({ success: true, data: response.data });
 
   } catch (err) {
-    console.error("Erro ao enviar envelope:", err.response?.data || err.message);
+    console.error("❌ Erro ao enviar envelope:", err.response?.data || err.message);
     res.status(500).json({
       success: false,
       error: err.response?.data || err.message,
@@ -98,5 +107,5 @@ app.post("/enviar-envelope", async (req, res) => {
 // 🔹 Inicializa servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
