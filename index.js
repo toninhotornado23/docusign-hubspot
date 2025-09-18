@@ -2,7 +2,6 @@ import express from "express";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
-import docusign from "docusign-esign";
 
 const app = express();
 app.use(express.json()); // interpreta JSON do HubSpot
