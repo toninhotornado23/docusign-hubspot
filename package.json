@@ -1,17 +1,14 @@
 {
-  "name": "docusign",
+  "name": "docusign-hubspot",
   "version": "1.0.0",
-  "description": "",
+  "description": "Integração HubSpot ↔ DocuSign",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "@hubspot/api-client": "^13.2.0",
-    "axios": "^1.12.2",
+    "axios": "^1.7.7",
+    "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2"
   }
 }
