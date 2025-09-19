@@ -71,7 +71,7 @@ app.post("/enviar-envelope", (req, res) => {
           {
             roleName: "Sócio Aderente",
             email: email,
-            name: nome,
+            name: nome_completo,
             tabs: {
               textTabs: [
                 { tabLabel: "Nacionalidade", value: nacionalidade },
