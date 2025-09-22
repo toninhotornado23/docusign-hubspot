@@ -24,7 +24,7 @@ app.post("/enviar-envelope", (req, res) => {
     try {
       // ⚙️ Configurações DocuSign
       const integratorKey = "32b34d39-c4ea-4174-9820-699a1ef7f266";
-      const userId = "4af0ba80-6b88-402d-a245-2751083f8a5c";
+      const userId = "94b8738d-9877-4601-b0bf-c151e26ab245";
       const accountId = "69784ef8-1393-4d49-927c-af9a1caed068";
       const templateId = "2aebf175-843a-470a-89ae-b956a397dfd7";
       const authServer = "account.docusign.com"; // produção
